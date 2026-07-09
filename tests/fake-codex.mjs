@@ -130,6 +130,15 @@ function main() {
       process.exit(0);
       break;
     }
+    case "rescue-dangling-symlink-escape": {
+      // Target deliberately does not exist — regression coverage for the
+      // fs.existsSync()-follows-symlinks bypass (see diff-safety.mjs).
+      fs.symlinkSync("/nonexistent/outside/target", path.join(args.dir, "dangling-escape-link"));
+      writeOutput(args, "Edited via dangling symlink.");
+      emit({ type: "turn.completed", usage: {} });
+      process.exit(0);
+      break;
+    }
     case "rescue-oversized": {
       fs.writeFileSync(path.join(args.dir, "huge.txt"), Buffer.alloc(3 * 1024 * 1024, "x"));
       writeOutput(args, "Wrote a large file.");

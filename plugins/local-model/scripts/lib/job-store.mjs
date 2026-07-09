@@ -8,9 +8,60 @@ export class ConcurrentMutationError extends Error {}
 
 const KINDS = new Set(["review", "adversarial-review", "rescue"]);
 const STATUSES = new Set(["running", "completed", "failed", "cancelled"]);
+const MUTATING_LOCK_STALE_MS = 10_000;
 
 function repoJobsDir(repoId) {
   return path.join(jobsDir(), repoId);
+}
+
+function mutatingLockPath(repoId) {
+  return path.join(repoJobsDir(repoId), ".mutating.lock");
+}
+
+/**
+ * Exclusive lock around the "is a mutating job already running?" check plus
+ * the job-file write that follows it, closing the TOCTOU window where two
+ * near-simultaneous `createJob({mutating: true})` calls could both read an
+ * empty/no-mutating-job listing before either had written its own job file,
+ * and both proceed as if they were the only one.
+ *
+ * `wx` is an atomic exclusive-create flag (fails with EEXIST if the file
+ * already exists) — the OS, not this process, arbitrates who wins a race
+ * to create it. If a holder crashes without releasing the lock, it's
+ * reclaimed once it's older than MUTATING_LOCK_STALE_MS rather than
+ * blocking every future rescue for that repo forever.
+ */
+function acquireMutatingLock(repoId) {
+  ensureDir(repoJobsDir(repoId));
+  const lockPath = mutatingLockPath(repoId);
+  try {
+    const fd = fs.openSync(lockPath, "wx");
+    fs.writeSync(fd, String(process.pid));
+    fs.closeSync(fd);
+    return lockPath;
+  } catch (err) {
+    if (/** @type {NodeJS.ErrnoException} */ (err).code !== "EEXIST") throw err;
+    try {
+      const stat = fs.statSync(lockPath);
+      if (Date.now() - stat.mtimeMs > MUTATING_LOCK_STALE_MS) {
+        fs.unlinkSync(lockPath);
+        return acquireMutatingLock(repoId); // one retry after reclaiming a stale lock
+      }
+    } catch {
+      // Lock disappeared between the failed open and this stat (released
+      // concurrently) — fall through and report contention; the caller
+      // that released it already proceeded.
+    }
+    return null;
+  }
+}
+
+function releaseMutatingLock(lockPath) {
+  try {
+    fs.unlinkSync(lockPath);
+  } catch {
+    // best effort
+  }
 }
 
 function jobFilePath(repoId, jobId) {
@@ -69,7 +120,18 @@ function reconcileJob(job) {
 export function createJob({ repoId, repoRoot, kind, mutating, model, agent, target }) {
   if (!KINDS.has(kind)) throw new Error(`Unknown job kind: ${kind}`);
 
-  if (mutating) {
+  if (!mutating) {
+    return writeNewJob({ repoId, repoRoot, kind, mutating, model, agent, target });
+  }
+
+  const lockPath = acquireMutatingLock(repoId);
+  if (!lockPath) {
+    throw new ConcurrentMutationError(
+      `Another mutating rescue job is being created for this repository right now. ` +
+        `Try again in a moment.`,
+    );
+  }
+  try {
     const activeMutating = runningJobsRaw(repoId)
       .map(reconcileJob)
       .find((job) => job.mutating && job.status === "running");
@@ -79,8 +141,13 @@ export function createJob({ repoId, repoRoot, kind, mutating, model, agent, targ
           `Wait for it to finish or cancel it with /local:cancel before starting another.`,
       );
     }
+    return writeNewJob({ repoId, repoRoot, kind, mutating, model, agent, target });
+  } finally {
+    releaseMutatingLock(lockPath);
   }
+}
 
+function writeNewJob({ repoId, repoRoot, kind, mutating, model, agent, target }) {
   const id = newJobId();
   const now = new Date().toISOString();
   const job = {

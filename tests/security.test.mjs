@@ -24,6 +24,17 @@ test("rescue: a symlink-escape edit is rejected, not reported as applied", () =>
   assert.equal(result.code, "SYMLINK_ESCAPE");
 });
 
+test("rescue: a dangling symlink-escape edit is rejected, not reported as applied", () => {
+  const repo = initGitRepo();
+  const env = envWithFakeCodex("rescue-dangling-symlink-escape");
+  const { stdout } = runNodeExpectFailure("local-companion.mjs", ["rescue", "--", "do", "it"], {
+    cwd: repo,
+    env,
+  });
+  const result = JSON.parse(stdout);
+  assert.equal(result.code, "SYMLINK_ESCAPE");
+});
+
 test("rescue: an oversized file edit is rejected", () => {
   const repo = initGitRepo();
   const env = envWithFakeCodex("rescue-oversized");

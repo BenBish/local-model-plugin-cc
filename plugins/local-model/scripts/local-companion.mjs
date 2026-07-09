@@ -80,6 +80,12 @@ async function runReviewJob({ job, repoRoot, repoIdValue, kind, args, config }) 
       : buildReviewPrompt(job.target);
   const providerArgs = buildProviderArgs(config);
 
+  // Shared across the initial call and the schema-invalid retry below, so
+  // the two together can never exceed REVIEW_TIMEOUT_MS — previously each
+  // call got its own full budget, so a pathological pair of near-timeout
+  // calls could take up to 2x the stated timeout for one review.
+  const deadline = Date.now() + REVIEW_TIMEOUT_MS;
+
   let runResult = runCodex({
     dir: repoRoot,
     providerArgs,
@@ -108,6 +114,15 @@ async function runReviewJob({ job, repoRoot, repoIdValue, kind, args, config }) 
     : { valid: false, errors: ["no JSON object found in model output"] };
 
   if (!validation.valid) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      updateJob(repoIdValue, job.id, {
+        status: "failed",
+        error: `Timed out after ${REVIEW_TIMEOUT_MS}ms (no budget left for the schema-invalid retry)`,
+        codexSessionId: runResult.sessionId,
+      });
+      return output({ error: "timed out" });
+    }
     // No session-resume dependency: a fresh call with the validation
     // errors folded into the prompt. No --output-schema here (see
     // codex-run.mjs) — schema conformance is prompt-only, so this retry
@@ -124,8 +139,15 @@ async function runReviewJob({ job, repoRoot, repoIdValue, kind, args, config }) 
       sandboxArgs: REVIEW_SANDBOX_ARGS,
       prompt: retryPrompt,
       logPath: job.logPath,
-      timeoutMs: REVIEW_TIMEOUT_MS,
+      timeoutMs: remainingMs,
     });
+    if (runResult.timedOut) {
+      updateJob(repoIdValue, job.id, {
+        status: "failed",
+        error: `Timed out after ${REVIEW_TIMEOUT_MS}ms (during the schema-invalid retry)`,
+      });
+      return output({ error: "timed out" });
+    }
     structured = runResult.text ? extractJsonBlock(runResult.text) : null;
     validation = structured
       ? validateReviewOutput(structured)
