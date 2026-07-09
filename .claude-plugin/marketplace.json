@@ -1,0 +1,21 @@
+{
+  "name": "local-model",
+  "owner": {
+    "name": "Ben Bishop"
+  },
+  "metadata": {
+    "description": "Delegate reviews and rescue work from Claude Code to local models (Ollama, LM Studio, custom OpenAI-compatible endpoints) via the codex CLI.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "local-model",
+      "description": "Use local models from Claude Code to review code or delegate tasks.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Ben Bishop"
+      },
+      "source": "./plugins/local-model"
+    }
+  ]
+}

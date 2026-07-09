@@ -147,6 +147,68 @@ jobs:
             exit 1
           fi
 
+      - name: Validate plugin commands and agents
+        run: |
+          ruby <<'RUBY'
+          require "yaml"
+
+          def frontmatter(path)
+            text = File.read(path)
+            match = text.match(/\A---\s*\n(.*?)\n---\s*\n/m)
+            return nil unless match
+            YAML.safe_load(match[1]) || {}
+          end
+
+          failed = false
+
+          Dir.glob("plugins/*/commands/*.md").sort.each do |path|
+            data = frontmatter(path)
+            if data.nil?
+              warn "missing YAML frontmatter: #{path}"
+              failed = true
+              next
+            end
+            if data["description"].to_s.strip.empty?
+              warn "missing description: #{path}"
+              failed = true
+            end
+            puts "command ok: #{path}"
+          end
+
+          Dir.glob("plugins/*/agents/*.md").sort.each do |path|
+            data = frontmatter(path)
+            if data.nil?
+              warn "missing YAML frontmatter: #{path}"
+              failed = true
+              next
+            end
+            %w[name description tools].each do |field|
+              if data[field].to_s.strip.empty?
+                warn "missing #{field}: #{path}"
+                failed = true
+              end
+            end
+            puts "agent ok: #{path}"
+          end
+
+          exit(failed ? 1 : 0)
+          RUBY
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
       - name: Secret scan
         uses: gitleaks/gitleaks-action@v2
         env:

@@ -6,8 +6,15 @@
 ## Structure
 
 ```
-<!-- TODO: update with real file tree after scaffolding -->
-src/
+.claude-plugin/marketplace.json
+plugins/local-model/
+  .claude-plugin/plugin.json
+  commands/{setup,review,adversarial-review,rescue,status,result,cancel}.md
+  agents/local-rescue.md
+  scripts/{local-companion,setup,status,result,cancel}.mjs, scripts/lib/*.mjs
+  schemas/review-output.schema.json
+  skills/local-model-runtime/
+tests/*.test.mjs
 ```
 
 ## Commands
@@ -15,13 +22,19 @@ src/
 All commands run from project root:
 
 ```bash
-bun run dev       # start dev server
-bun run build     # production build
-bun run test      # run tests
-bun run lint      # lint + type-check
+npm install       # install devDependencies
+npm test          # run tests
+npm run lint       # type-check .mjs sources
 ```
 
-<!-- TODO: add ports, env vars needed, DB setup steps -->
+No dev server, no build step, no database. This is a Claude Code plugin distributed
+directly from this git repo — every file under `plugins/local-model/` must be
+runnable as committed, since installing the plugin does not run `npm install` or
+any build in the target user's environment.
+
+Runtime peer dependency: the `codex` CLI must be on the end user's `PATH`.
+`/local:setup` checks for it and guides installation; nothing in this repo vendors
+or auto-installs it.
 
 ### Linear MCP
 
