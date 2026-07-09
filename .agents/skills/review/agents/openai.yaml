@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review"
+  short_description: "Review GitHub PRs and branch diffs"
+  default_prompt: "Use $review to review a GitHub PR/MR or current branch diff and optionally submit the review with gh."

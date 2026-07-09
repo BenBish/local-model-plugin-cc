@@ -1,0 +1,12 @@
+interface:
+  display_name: "Work"
+  short_description: "Start Linear issue worktrees"
+  default_prompt: "Use $work with a Linear issue key to create an isolated branch and worktree."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "linear"
+      description: "Linear MCP server for fetching Linear issue context before starting work."
+      transport: "streamable_http"
+      url: "https://mcp.linear.app/mcp"

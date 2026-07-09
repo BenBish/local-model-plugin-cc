@@ -1,0 +1,10 @@
+interface:
+  display_name: "Manual"
+  short_description: "Manually verify UI and API changes"
+  default_prompt: "Use $manual to manually test changed behavior, using Playwright MCP for UI and curl or equivalent requests for APIs."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "playwright"
+      description: "Playwright MCP server for browser-based manual UI verification."

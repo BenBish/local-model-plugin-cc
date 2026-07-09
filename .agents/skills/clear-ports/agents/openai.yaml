@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clear Ports"
+  short_description: "Stop local dev processes and free occupied ports"
+  default_prompt: "Use $clear-ports to identify occupied local ports, stop related development processes, and verify the ports are clear."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "MR"
+  short_description: "Create GitHub PRs from branch work"
+  default_prompt: "Use $mr to commit relevant changes, push the branch, and create a GitHub PR/MR."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test"
+  short_description: "Run all project checks"
+  default_prompt: "Use $test to run TypeScript, formatting, linting, unit, integration, and e2e checks."

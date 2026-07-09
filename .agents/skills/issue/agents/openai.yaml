@@ -1,0 +1,12 @@
+interface:
+  display_name: "Issue"
+  short_description: "Manage Linear issues"
+  default_prompt: "Use $issue to create, update, or delete a Linear issue."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "linear"
+      description: "Linear MCP server for finding, creating, updating, and deleting Linear issues."
+      transport: "streamable_http"
+      url: "https://mcp.linear.app/mcp"

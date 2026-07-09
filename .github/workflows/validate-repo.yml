@@ -1,0 +1,153 @@
+name: Validate Repo
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    name: Validate skills and config
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate JSON and YAML
+        run: |
+          ruby <<'RUBY'
+          require "json"
+          require "yaml"
+
+          files = `git ls-files`.lines.map(&:chomp)
+          failed = false
+
+          files.grep(/\.(json)$/).each do |path|
+            begin
+              JSON.parse(File.read(path))
+              puts "json ok: #{path}"
+            rescue => e
+              warn "json invalid: #{path}: #{e.message}"
+              failed = true
+            end
+          end
+
+          files.grep(/\.(ya?ml)$/).each do |path|
+            begin
+              YAML.safe_load_file(path, permitted_classes: [Symbol], aliases: true)
+              puts "yaml ok: #{path}"
+            rescue => e
+              warn "yaml invalid: #{path}: #{e.message}"
+              failed = true
+            end
+          end
+
+          exit(failed ? 1 : 0)
+          RUBY
+
+      - name: Validate Agent Skills
+        run: |
+          ruby <<'RUBY'
+          require "yaml"
+
+          skill_dirs = Dir.glob(".agents/skills/*").select { |path| File.directory?(path) }.sort
+          abort "no skills found under .agents/skills" if skill_dirs.empty?
+
+          failed = false
+
+          skill_dirs.each do |dir|
+            skill_file = File.join(dir, "SKILL.md")
+            unless File.file?(skill_file)
+              warn "missing SKILL.md: #{dir}"
+              failed = true
+              next
+            end
+
+            text = File.read(skill_file)
+            match = text.match(/\A---\s*\n(.*?)\n---\s*\n/m)
+            unless match
+              warn "missing YAML frontmatter: #{skill_file}"
+              failed = true
+              next
+            end
+
+            begin
+              data = YAML.safe_load(match[1]) || {}
+            rescue => e
+              warn "invalid frontmatter: #{skill_file}: #{e.message}"
+              failed = true
+              next
+            end
+
+            expected_name = File.basename(dir)
+            name = data["name"]
+            description = data["description"].to_s
+
+            if name != expected_name
+              warn "skill name mismatch: #{skill_file}: expected #{expected_name.inspect}, got #{name.inspect}"
+              failed = true
+            end
+
+            unless name.to_s.match?(/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/) && name.length <= 64
+              warn "invalid skill name: #{skill_file}: #{name.inspect}"
+              failed = true
+            end
+
+            if description.empty? || description.length > 1024
+              warn "invalid description length: #{skill_file}: #{description.length}"
+              failed = true
+            end
+
+            # Ignore fenced examples so portable templates can mention example paths.
+            searchable = text.gsub(/```.*?```/m, "")
+            searchable.scan(/`((?:references|scripts|assets)\/[^`\s]+)`/) do |match_path|
+              relative_path = match_path.first
+              full_path = File.join(dir, relative_path)
+              next if File.exist?(full_path)
+
+              warn "missing referenced skill file: #{skill_file}: #{relative_path}"
+              failed = true
+            end
+
+            openai_file = File.join(dir, "agents", "openai.yaml")
+            if File.file?(openai_file)
+              begin
+                openai = YAML.safe_load_file(openai_file) || {}
+                default_prompt = openai.dig("interface", "default_prompt").to_s
+                unless default_prompt.include?("$#{expected_name}")
+                  warn "openai default_prompt should mention $#{expected_name}: #{openai_file}"
+                  failed = true
+                end
+              rescue => e
+                warn "invalid openai metadata: #{openai_file}: #{e.message}"
+                failed = true
+              end
+            end
+
+            puts "skill ok: #{expected_name}"
+          end
+
+          exit(failed ? 1 : 0)
+          RUBY
+
+      - name: Prevent Claude command regression
+        run: |
+          if [ -d .claude/commands ]; then
+            echo "::error::.claude/commands should not be reintroduced; use .agents/skills instead"
+            find .claude/commands -maxdepth 2 -type f
+            exit 1
+          fi
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
