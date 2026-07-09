@@ -85,6 +85,13 @@ export function fakeCodexBin() {
   return binDir;
 }
 
+/**
+ * @param {string} scriptRelPath
+ * @param {string[]} args
+ * @param {{cwd?: string, env: NodeJS.ProcessEnv}} opts cwd defaults to the
+ *   current process's cwd — only repo-scoped scripts (local-companion,
+ *   status, result, cancel) need an explicit one; setup.mjs doesn't.
+ */
 export function runNode(scriptRelPath, args, { cwd, env }) {
   const scriptPath = path.join(SCRIPTS_DIR, scriptRelPath);
   const result = execFileSync(process.execPath, [scriptPath, ...args], {
@@ -95,6 +102,10 @@ export function runNode(scriptRelPath, args, { cwd, env }) {
   return result;
 }
 
+/** @param {string} scriptRelPath
+ * @param {string[]} args
+ * @param {{cwd?: string, env: NodeJS.ProcessEnv}} opts
+ */
 export function runNodeExpectFailure(scriptRelPath, args, { cwd, env }) {
   const scriptPath = path.join(SCRIPTS_DIR, scriptRelPath);
   try {

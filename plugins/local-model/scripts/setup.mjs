@@ -21,6 +21,18 @@ import { jobLogPath } from "./lib/job-store.mjs";
 
 const DETECT_TIMEOUT_MS = 1500;
 
+// providerId is interpolated directly into codex `-c model_providers.<id>.*`
+// TOML override arguments (see codex-config.mjs), and apiKeyEnvVar into a
+// `-c ...env_key=<value>` override — neither is passed through a shell, so
+// this isn't a shell-injection concern, but an unvalidated providerId
+// containing "." would silently create an unintended nested TOML key path,
+// and either containing "=" would break codex's own key=value parsing of
+// the -c flag. Rejecting anything but safe identifiers here, before it's
+// ever persisted, turns that into a clear error at configure time instead
+// of a confusing codex failure later.
+const SAFE_PROVIDER_ID = /^[a-zA-Z0-9_-]+$/;
+const SAFE_ENV_VAR_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 /**
  * @param {string} url
  * @param {{timeoutMs?: number}} [opts]
@@ -78,8 +90,13 @@ function parseConfigureArgs(argv) {
     else if (arg === "--api-key-env") args.apiKeyEnvVar = argv[++i];
     else if (arg === "--default-model") args.defaultModel = argv[++i];
     else if (arg === "--model") {
-      const [id, name] = argv[++i].split("=");
-      args.models.push({ id, name: name ?? id });
+      // Split on the first "=" only — String.split("=") would silently
+      // truncate a display name that itself contains "=".
+      const raw = argv[++i];
+      const eqIdx = raw.indexOf("=");
+      const id = eqIdx === -1 ? raw : raw.slice(0, eqIdx);
+      const name = eqIdx === -1 ? id : raw.slice(eqIdx + 1);
+      args.models.push({ id, name });
     }
   }
   return args;
@@ -101,6 +118,18 @@ function cmdConfigure(argv) {
         console.error(`--mode custom requires --${required.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())}`);
         process.exit(1);
       }
+    }
+    if (!SAFE_PROVIDER_ID.test(args.providerId)) {
+      console.error(
+        `--provider-id must match ${SAFE_PROVIDER_ID} (letters, numbers, "-", "_" only): got ${JSON.stringify(args.providerId)}`,
+      );
+      process.exit(1);
+    }
+    if (args.apiKeyEnvVar && !SAFE_ENV_VAR_NAME.test(args.apiKeyEnvVar)) {
+      console.error(
+        `--api-key-env must be a valid environment variable name (${SAFE_ENV_VAR_NAME}): got ${JSON.stringify(args.apiKeyEnvVar)}`,
+      );
+      process.exit(1);
     }
   }
   if (args.models.length === 0) {

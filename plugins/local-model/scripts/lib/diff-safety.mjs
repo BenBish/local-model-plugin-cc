@@ -48,11 +48,52 @@ function isWithinRoot(root, candidate) {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
+const MAX_SYMLINK_HOPS = 40;
+
 /**
- * Resolve `relPath` against `repoRoot`, following symlinks, and confirm the
- * real, final location is still inside the repo. Rejects path traversal
+ * Like fs.realpathSync, but doesn't require the final target to exist:
+ * walks the symlink chain manually (lstat-based, so it sees the link
+ * itself rather than following through to a possibly-nonexistent target)
+ * and returns the fully resolved path even if it points nowhere, so
+ * containment can still be checked on it.
+ *
+ * This matters because fs.existsSync()/fs.realpathSync() both follow
+ * symlinks to determine existence — for a *dangling* symlink (target
+ * doesn't exist), fs.existsSync() returns false, which previously made the
+ * caller skip validation entirely. A symlink pointing outside the repo to
+ * a path that happens not to exist yet (or not on this machine) escaped
+ * detection this way. Confirmed empirically: fs.existsSync() on a dangling
+ * symlink returns false while fs.lstatSync() still sees a real filesystem
+ * entry.
+ */
+function resolveMaybeDanglingRealpath(startPath) {
+  let current = startPath;
+  const seen = new Set();
+  for (let hops = 0; hops < MAX_SYMLINK_HOPS; hops++) {
+    let lst;
+    try {
+      lst = fs.lstatSync(current);
+    } catch {
+      return current; // this segment doesn't exist at all: nothing further to resolve
+    }
+    if (!lst.isSymbolicLink()) return current;
+    if (seen.has(current)) {
+      throw new DiffSafetyError(`Symlink cycle detected: ${startPath}`, "SYMLINK_ESCAPE", startPath);
+    }
+    seen.add(current);
+    const target = fs.readlinkSync(current);
+    current = path.isAbsolute(target) ? target : path.resolve(path.dirname(current), target);
+  }
+  throw new DiffSafetyError(`Symlink chain too deep: ${startPath}`, "SYMLINK_ESCAPE", startPath);
+}
+
+/**
+ * Resolve `relPath` against `repoRoot`, following symlinks (including
+ * dangling ones — see resolveMaybeDanglingRealpath), and confirm the real,
+ * final location is still inside the repo. Rejects path traversal
  * (`../../etc/passwd`) and symlink escapes (a tracked symlink whose target
- * resolves outside the repo) identically.
+ * resolves outside the repo, whether or not that target currently exists)
+ * identically.
  */
 function resolveInsideRoot(repoRoot, relPath) {
   const absPath = path.resolve(repoRoot, relPath);
@@ -67,8 +108,14 @@ function resolveInsideRoot(repoRoot, relPath) {
   const segments = path.relative(repoRoot, absPath).split(path.sep).filter(Boolean);
   for (const segment of segments) {
     current = path.join(current, segment);
-    if (!fs.existsSync(current)) continue; // deleted/new file: nothing to walk further
-    const real = fs.realpathSync(current);
+    let entryExists = true;
+    try {
+      fs.lstatSync(current);
+    } catch {
+      entryExists = false;
+    }
+    if (!entryExists) continue; // deleted/new file: nothing to walk further
+    const real = resolveMaybeDanglingRealpath(current);
     if (!isWithinRoot(repoRoot, real)) {
       throw new DiffSafetyError(`Symlink escapes repository root: ${relPath}`, "SYMLINK_ESCAPE", relPath);
     }

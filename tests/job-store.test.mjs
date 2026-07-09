@@ -120,6 +120,55 @@ test("a running job with a dead PID is reconciled to failed", () => {
   });
 });
 
+test("a second createJob({mutating:true}) contending for the lock is rejected, not silently allowed through", () => {
+  // Regression test for the TOCTOU race: simulate a concurrent creator by
+  // holding the lock file manually (as acquireMutatingLock would) before
+  // calling createJob, instead of relying on real process-level timing.
+  withIsolatedHome(() => {
+    const dir = path.join(jobsDir(), "repo-g");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, ".mutating.lock"), "999999999");
+
+    assert.throws(
+      () =>
+        jobStore.createJob({
+          repoId: "repo-g",
+          repoRoot: "/tmp/repo-g",
+          kind: "rescue",
+          mutating: true,
+          model: "test/model",
+          agent: "local-rescue",
+        }),
+      jobStore.ConcurrentMutationError,
+    );
+    // No job file should have been written while the lock was held.
+    assert.equal(jobStore.listJobs("repo-g").length, 0);
+  });
+});
+
+test("a stale mutating lock (holder crashed) is reclaimed instead of blocking forever", () => {
+  withIsolatedHome(() => {
+    const dir = path.join(jobsDir(), "repo-h");
+    fs.mkdirSync(dir, { recursive: true });
+    const lockPath = path.join(dir, ".mutating.lock");
+    fs.writeFileSync(lockPath, "999999999");
+    const old = new Date(Date.now() - 60_000); // well past the staleness threshold
+    fs.utimesSync(lockPath, old, old);
+
+    const job = jobStore.createJob({
+      repoId: "repo-h",
+      repoRoot: "/tmp/repo-h",
+      kind: "rescue",
+      mutating: true,
+      model: "test/model",
+      agent: "local-rescue",
+    });
+    assert.equal(job.kind, "rescue");
+    // The lock is released after the (successful) create.
+    assert.equal(fs.existsSync(lockPath), false);
+  });
+});
+
 test("getLatestJob filters by kind and returns the most recent", () => {
   withIsolatedHome(() => {
     const first = jobStore.createJob({
