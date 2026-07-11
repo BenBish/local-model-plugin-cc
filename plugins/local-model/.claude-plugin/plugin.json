@@ -1,5 +1,5 @@
 {
-  "name": "local-model",
+  "name": "local",
   "version": "0.1.0",
   "description": "Use local models from Claude Code to review code or delegate tasks.",
   "author": {

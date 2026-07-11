@@ -9,7 +9,7 @@
   },
   "plugins": [
     {
-      "name": "local-model",
+      "name": "local",
       "description": "Use local models from Claude Code to review code or delegate tasks.",
       "version": "0.1.0",
       "author": {
