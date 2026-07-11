@@ -31,6 +31,26 @@ function git(repoRoot, args) {
 }
 
 /**
+ * `git rev-parse HEAD` throws ("fatal: ambiguous argument 'HEAD'") on a
+ * repo with zero commits — an "unborn" HEAD, the normal state right after
+ * `git init` and before any commit. That's a real, unremarkable starting
+ * point (confirmed via a real first-use report, not hypothetical), not an
+ * error condition, so it's treated as "no HEAD yet" (null) rather than
+ * left to throw a raw git subprocess error up through snapshotRepoState/
+ * validateChanges. The before/after staleness comparison in validateChanges
+ * still works correctly on null: null !== null is false (no false-positive
+ * staleness on two commit-less snapshots), and null !== "<sha>" is true (a
+ * commit appearing during the run is still correctly detected as stale).
+ */
+function currentHeadSha(repoRoot) {
+  try {
+    return git(repoRoot, ["rev-parse", "HEAD"]).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Capture enough state before a mutating rescue run to detect two things
  * afterward: (a) someone else committed concurrently (HEAD moved), and
  * (b) which files actually changed. We can't see opencode's internal
@@ -38,7 +58,7 @@ function git(repoRoot, args) {
  * documented as an open precision gap in the plan.
  */
 export function snapshotRepoState(repoRoot) {
-  const headSha = git(repoRoot, ["rev-parse", "HEAD"]).trim();
+  const headSha = currentHeadSha(repoRoot);
   const statusBefore = git(repoRoot, ["status", "--porcelain=v1"]);
   return { headSha, statusBefore, capturedAt: Date.now() };
 }
@@ -157,7 +177,7 @@ function looksBinary(absPath) {
  * do not report it as applied."
  */
 export function validateChanges(repoRoot, before) {
-  const headSha = git(repoRoot, ["rev-parse", "HEAD"]).trim();
+  const headSha = currentHeadSha(repoRoot);
   if (headSha !== before.headSha) {
     throw new DiffSafetyError(
       "Repository HEAD moved during the rescue run (concurrent commit) — treating result as stale.",

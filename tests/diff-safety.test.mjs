@@ -7,7 +7,7 @@ import {
   validateChanges,
   DiffSafetyError,
 } from "../plugins/local-model/scripts/lib/diff-safety.mjs";
-import { initGitRepo, git, mkTmpDir } from "./helpers.mjs";
+import { initGitRepo, initEmptyGitRepo, git, mkTmpDir } from "./helpers.mjs";
 
 test("validateChanges accepts a safe, small text-file change", () => {
   const repo = initGitRepo();
@@ -15,6 +15,37 @@ test("validateChanges accepts a safe, small text-file change", () => {
   fs.writeFileSync(path.join(repo, "new-file.txt"), "hello\n");
   const result = validateChanges(repo, before);
   assert.deepEqual(result.changedFiles, ["new-file.txt"]);
+});
+
+test("snapshotRepoState does not throw on a repo with no commits yet (unborn HEAD)", () => {
+  // Regression test: `git rev-parse HEAD` throws on a commit-less repo
+  // (the normal state right after `git init`), and that previously
+  // propagated as a raw, uncaught git subprocess error instead of being
+  // treated as a valid "no HEAD yet" starting state.
+  const repo = initEmptyGitRepo();
+  const before = snapshotRepoState(repo);
+  assert.equal(before.headSha, null);
+});
+
+test("validateChanges accepts a change in a repo that still has no commits", () => {
+  const repo = initEmptyGitRepo();
+  const before = snapshotRepoState(repo);
+  fs.writeFileSync(path.join(repo, "new-file.txt"), "hello\n");
+  const result = validateChanges(repo, before);
+  assert.equal(result.headSha, null);
+  assert.deepEqual(result.changedFiles, ["new-file.txt"]);
+});
+
+test("validateChanges detects staleness when a commit-less repo gets its first commit mid-run", () => {
+  const repo = initEmptyGitRepo();
+  const before = snapshotRepoState(repo);
+  fs.writeFileSync(path.join(repo, "new-file.txt"), "hello\n");
+  git(repo, ["add", "."]);
+  git(repo, ["commit", "-q", "-m", "first commit, concurrently"]);
+  assert.throws(
+    () => validateChanges(repo, before),
+    (err) => err instanceof DiffSafetyError && err.code === "STALE_HEAD",
+  );
 });
 
 test("validateChanges rejects a symlink that escapes the repo root", () => {

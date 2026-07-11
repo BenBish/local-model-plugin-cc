@@ -27,6 +27,20 @@ export function initGitRepo(prefix = "local-model-repo-") {
 }
 
 /**
+ * A git repo fixture with no commits at all (unborn HEAD) — the normal
+ * state right after `git init`, before a first commit. Distinct from
+ * initGitRepo() specifically to exercise that state, since it's easy to
+ * assume a repo always has a resolvable HEAD.
+ */
+export function initEmptyGitRepo(prefix = "local-model-empty-repo-") {
+  const dir = mkTmpDir(prefix);
+  git(dir, ["init", "-q"]);
+  git(dir, ["config", "user.email", "test@example.com"]);
+  git(dir, ["config", "user.name", "Test"]);
+  return dir;
+}
+
+/**
  * An isolated HOME (with XDG dirs under it) so tests never read or write
  * the real user's config/state, plus a plugin config already written so
  * scripts don't need a live /local:setup run.
