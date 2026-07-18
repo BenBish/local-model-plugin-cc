@@ -39,24 +39,26 @@ agent runtime, no generated config file — codex's own sandboxing
 
 - `.claude-plugin/marketplace.json`, `plugins/local-model/` — the Claude Code
   plugin itself (manifest, commands, rescue subagent, broker scripts,
-  findings schema).
+  findings schema, runtime skill).
 - `tests/` — `node --test` suite, including a fake `codex` binary fixture
   so CI never needs a live model server.
 - `CLAUDE.md` / `AGENTS.md` — project spec consumed by coding agents.
-- `.agents/skills/` — portable Agent Skills for *contributing to this repo*
-  (issue, work, mr, merge, test, manual, create-skill, etc.), unrelated to
-  the plugin's own runtime; symlinked at `.claude/skills/` for Claude Code.
-- `.codex/config.toml` — Codex project config, including Linear MCP.
-- `.mcp.json` — generic MCP server config for clients that still read it.
 - `.github/` — CI/workflow configuration.
+
+## Development
+
+```bash
+npm install
+npm test
+npm run lint
+```
 
 ## Conventions
 
 - **Branches**: `feature/<issue-number>-brief-slug` from `main`
 - **Commits**: [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat(scope): description`, `fix(scope): description`, etc.)
-- **PRs**: reference the issue with `Resolves #N`; one squashed semantic
-  commit per PR
+- **PRs**: one squashed semantic commit per PR
 
 See `CLAUDE.md` for the full set of project instructions used by coding
 agents working in this repo.

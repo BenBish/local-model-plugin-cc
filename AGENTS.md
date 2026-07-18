@@ -24,7 +24,7 @@ All commands run from project root:
 ```bash
 npm install       # install devDependencies
 npm test          # run tests
-npm run lint       # type-check .mjs sources
+npm run lint      # type-check .mjs sources
 ```
 
 No dev server, no build step, no database. This is a Claude Code plugin distributed
@@ -36,35 +36,16 @@ Runtime peer dependency: the `codex` CLI must be on the end user's `PATH`.
 `/local:setup` checks for it and guides installation; nothing in this repo vendors
 or auto-installs it.
 
-### Linear MCP
-
-For Codex, use the documented OAuth-based Linear MCP setup. The preferred
-configuration is in `.codex/config.toml`:
-
-```toml
-[mcp_servers.linear]
-url = "https://mcp.linear.app/mcp"
-```
-
-After creating a project from this starter, run:
-
-```bash
-codex mcp login linear
-```
-
-Do not use a Linear API key as Codex's primary Linear MCP auth path. API-key
-bearer auth may work for raw MCP HTTP requests or other clients, but Codex's
-Linear integration is expected to use OAuth.
-
 ## Architecture
 
-<!-- TODO: describe the key architectural decisions once the project is scaffolded -->
-<!-- Example: REST API on port 3000, React SPA on 5173, SQLite at data/app.db -->
-
-## Auth / API Patterns
-
-<!-- TODO: describe auth approach (session cookie, JWT, API key) and any token formats -->
+Thin broker over the `codex` CLI. Provider/model selection is passed as ephemeral
+`-c model_providers.*` CLI overrides on every invocation (no generated config file).
+Jobs are tracked as flat JSON under the user's XDG state directory, never inside a
+target repository. Review runs under a read-only sandbox; rescue under workspace-write
+with a post-hoc diff-safety gate.
 
 ## Gotchas
 
-<!-- TODO: document surprises a new agent would hit — unusual build steps, env vars required before run, quirky test setup, etc. -->
+- `codex exec review` does not accept `--oss` / `--local-provider`; all modes use `-c` overrides.
+- End-user installs of the plugin never run `npm install` — only files under `plugins/local-model/` ship to users.
+- Tests use a fake `codex` binary fixture so CI does not need a live model server.

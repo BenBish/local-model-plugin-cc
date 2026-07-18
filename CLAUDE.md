@@ -10,7 +10,7 @@
 - **Language/Runtime**: Node.js >=20, plain `.mjs` (no build step — shipped scripts must run as-is since Claude Code installs the plugin directly from this git repo)
 - **Framework**: none — Claude Code plugin manifest conventions (`.claude-plugin/`, `commands/*.md`, `agents/*.md`)
 - **Database**: none — the job ledger is flat JSON files under the user's XDG state dir, never inside a target repo. No config file is generated for codex either — provider/model selection is passed as CLI flags on every invocation.
-- **Package manager**: npm for `devDependencies` (TypeScript, used only for `tsc --noEmit` type-checking of the `.mjs` sources via JSDoc). Nothing shipped in `plugins/local-model/` may assume bun is installed on an end user's machine, even though the starter template this repo was scaffolded from defaults to bun.
+- **Package manager**: npm for `devDependencies` (TypeScript, used only for `tsc --noEmit` type-checking of the `.mjs` sources via JSDoc). Nothing shipped in `plugins/local-model/` may assume bun is installed on an end user's machine.
 
 ## Commands
 
@@ -46,7 +46,6 @@ tests/                                   # node --test suite incl. fake-codex fi
 Conventional Commits: `feat(scope): description`, `fix(scope): description`, `docs: description`, `chore: description`
 
 ### PRs
-- Reference the issue with `Resolves #N`
 - One squashed semantic commit per PR
 
 ## Do Not Commit
