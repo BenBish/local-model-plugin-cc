@@ -12,6 +12,48 @@ OpenAI-compatible endpoint's URL) instead of a hosted model. No separate
 agent runtime, no generated config file — codex's own sandboxing
 (`-s read-only` / `-s workspace-write`) and tool-calling loop do the work.
 
+## Install unit
+
+The **consumer plugin** is only `plugins/local-model/` (marketplace plugin
+name `local`). The repo root is the marketplace + tests + contributor docs.
+Do **not** install the bare repository root as a plugin in Grok Build or
+any other client. A whole-repo install can attach non-product files (for
+example a local `.mcp.json`) as consumer MCP.
+
+## Install (Claude Code)
+
+This repo is its own Claude Code marketplace. Marketplace name is
+`local-model`; plugin name is `local` (see `.claude-plugin/marketplace.json`):
+
+```text
+/plugin marketplace add BenBish/local-model-plugin-cc
+/plugin install local@local-model
+```
+
+That registers marketplace `local-model` and installs the nested
+`plugins/local-model` package, which exposes the `/local:*` commands below.
+
+## Install (Grok Build)
+
+Prefer the marketplace path so only the nested plugin installs:
+
+```bash
+grok plugin marketplace add BenBish/local-model-plugin-cc
+grok plugin install local --trust
+```
+
+Subdirectory form (same install unit):
+
+```bash
+grok plugin install 'BenBish/local-model-plugin-cc#plugins/local-model' --trust
+```
+
+Do **not** run `grok plugin install BenBish/local-model-plugin-cc` or a bare
+git URL without `#plugins/local-model`. That treats the monorepo root as the
+plugin.
+
+Consumer MCP belongs in your user or project Grok config, not in this plugin.
+
 ## Commands
 
 - `/local:setup` — detect a local model server (Ollama at `:11434`, then LM
@@ -34,12 +76,14 @@ agent runtime, no generated config file — codex's own sandboxing
   required peer dependency)
 - A running local model server (Ollama, LM Studio, or a custom
   OpenAI-compatible endpoint) with a model capable of reliable tool calling
+- Claude Code and/or Grok Build, with this plugin installed as above
 
 ## What's here
 
-- `.claude-plugin/marketplace.json`, `plugins/local-model/` — the Claude Code
-  plugin itself (manifest, commands, rescue subagent, broker scripts,
-  findings schema, runtime skill).
+- `.claude-plugin/marketplace.json` — marketplace index; points at the
+  nested package only (`source: ./plugins/local-model`).
+- `plugins/local-model/` — the only consumer plugin package (manifest,
+  commands, rescue subagent, broker scripts, findings schema, runtime skill).
 - `tests/` — `node --test` suite, including a fake `codex` binary fixture
   so CI never needs a live model server.
 - `CLAUDE.md` / `AGENTS.md` — project spec consumed by coding agents.

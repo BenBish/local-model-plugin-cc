@@ -62,6 +62,37 @@ jobs:
             exit 1
           fi
 
+      - name: Forbid personal tooling and consumer MCP leaks
+        run: |
+          failed=0
+          if [ -e .mcp.json ]; then
+            echo "::error::Do not commit root .mcp.json (personal MCP wiring; whole-repo installs would leak it as consumer MCP)"
+            failed=1
+          fi
+          if [ -n "$(git ls-files 'plugins/*/.mcp.json' 'plugins/*/**/.mcp.json' 2>/dev/null)" ] || \
+             compgen -G 'plugins/*/.mcp.json' > /dev/null || \
+             compgen -G 'plugins/*/*/.mcp.json' > /dev/null; then
+            echo "::error::Do not ship .mcp.json under plugins/ (product plugin has no consumer MCP)"
+            git ls-files 'plugins/*/.mcp.json' 'plugins/*/**/.mcp.json' 2>/dev/null || true
+            find plugins -name '.mcp.json' 2>/dev/null || true
+            failed=1
+          fi
+          if [ -d .codex ] || [ -e .codex ]; then
+            echo "::error::Do not commit .codex/ (personal Codex config)"
+            find .codex -maxdepth 2 2>/dev/null || true
+            failed=1
+          fi
+          if [ -e .agents ] || [ -n "$(git ls-files '.agents' '.agents/**' 2>/dev/null)" ]; then
+            echo "::error::Do not vendor portable agent tooling under .agents/; use a user-level skills plugin"
+            failed=1
+          fi
+          if [ -e .claude/skills ]; then
+            echo "::error::Do not ship .claude/skills in this public plugin repo"
+            ls -la .claude/skills
+            failed=1
+          fi
+          exit "$failed"
+
       - name: Validate plugin commands, agents, and skills
         run: |
           ruby <<'RUBY'
