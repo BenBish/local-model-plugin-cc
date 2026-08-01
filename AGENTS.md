@@ -47,8 +47,9 @@ with a post-hoc diff-safety gate.
 ## Gotchas
 
 - Consumer install unit is **only** `plugins/local-model/` (marketplace name
-  `local`). Do not install the bare repo root into Grok Build or Claude;
-  that can leak root `.mcp.json` / other non-product files as MCP.
+  `local-model`, plugin name `local`). Do not install the bare repo root into
+  Grok Build or Claude; that can leak root `.mcp.json` / other non-product
+  files as MCP.
 - Do not reintroduce root `.mcp.json`, `plugins/*/.mcp.json`, `.codex/`, or
   vendored portable skills under `.agents/` / `.claude/skills`. CI fails if
   they reappear.
