@@ -46,6 +46,13 @@ with a post-hoc diff-safety gate.
 
 ## Gotchas
 
+- Consumer install unit is **only** `plugins/local-model/` (marketplace name
+  `local-model`, plugin name `local`). Do not install the bare repo root into
+  Grok Build or Claude; that can leak root `.mcp.json` / other non-product
+  files as MCP.
+- Do not reintroduce root `.mcp.json`, `plugins/*/.mcp.json`, `.codex/`, or
+  vendored portable skills under `.agents/` / `.claude/skills`. CI fails if
+  they reappear.
 - `codex exec review` does not accept `--oss` / `--local-provider`; all modes use `-c` overrides.
 - End-user installs of the plugin never run `npm install` — only files under `plugins/local-model/` ship to users.
 - Tests use a fake `codex` binary fixture so CI does not need a live model server.

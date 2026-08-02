@@ -19,6 +19,12 @@ out/
 # Claude Code local settings (may contain tokens)
 .claude/settings.local.json
 
+# Personal agent / MCP tooling — never vendor in this public plugin repo
+.agents/
+.claude/skills
+.codex/
+.mcp.json
+
 # OS
 .DS_Store
 Thumbs.db

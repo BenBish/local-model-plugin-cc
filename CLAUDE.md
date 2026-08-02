@@ -48,8 +48,18 @@ Conventional Commits: `feat(scope): description`, `fix(scope): description`, `do
 ### PRs
 - One squashed semantic commit per PR
 
+## Install unit
+
+Only `plugins/local-model/` ships to consumers (marketplace plugin name
+`local`). Grok Build: `grok plugin marketplace add BenBish/local-model-plugin-cc`
+then `grok plugin install local --trust` (or
+`BenBish/local-model-plugin-cc#plugins/local-model`). Never install the bare
+repo root as a Grok plugin.
+
 ## Do Not Commit
 
 - `.env`, `.env.local`, any secrets or credentials
 - `.claude/settings.local.json`
+- Personal agent tooling: `.agents/`, `.claude/skills`, `.codex/`, root
+  `.mcp.json`, or `plugins/*/.mcp.json`
 - Build artefacts (`dist/`, `build/`, `.next/`, `node_modules/`)
