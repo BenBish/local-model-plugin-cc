@@ -35,7 +35,10 @@ That registers marketplace `local-model` and installs the nested
 
 ## Install (Grok Build)
 
-Prefer the marketplace path so only the nested plugin installs:
+Prefer the marketplace path (or the `#plugins/local-model` form below).
+Marketplace install still clones this monorepo into Grok’s plugin cache; Grok
+then binds the consumer unit to `plugins/local-model` via the marketplace
+`source` field — not the bare repo root.
 
 ```bash
 grok plugin marketplace add BenBish/local-model-plugin-cc
@@ -52,7 +55,9 @@ Do **not** run `grok plugin install BenBish/local-model-plugin-cc` or a bare
 git URL without `#plugins/local-model`. That treats the monorepo root as the
 plugin.
 
-Consumer MCP belongs in your user or project Grok config, not in this plugin.
+Enable the plugin if needed (`[plugins].enabled` includes `local`, or use
+the Plugins tab). Consumer MCP belongs in your user or project Grok config,
+not in this plugin.
 
 ## Commands
 
