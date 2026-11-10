@@ -94,6 +94,10 @@ not in this plugin.
 - `CLAUDE.md` / `AGENTS.md` — project spec consumed by coding agents.
 - `.github/` — CI/workflow configuration.
 
+## Barge
+
+Try [Barge](https://getbarge.io/?utm_source=github&utm_medium=referral&utm_campaign=barge&utm_content=BenBish-local-model-plugin-cc-readme-text), a cloud runtime environment for your agents.
+
 ## Development
 
 ```bash
